@@ -95,6 +95,7 @@
 #include <stan/optimization/bfgs.hpp>
 
 #include <stan/variational/advi.hpp>
+#include <stan/variational/trustvi.hpp>
 
 #include <stan/services/init/initialize_state.hpp>
 #include <stan/services/io/do_print.hpp>
@@ -834,6 +835,9 @@ namespace stan {
         std::cout << std::endl;
         std::cout << std::endl;
 
+        // let's avoid random inits for cont params
+        cont_params.fill(0.0);
+
         if (algo->value() == "fullrank") {
           std::vector<std::string> names;
           names.push_back("lp__");
@@ -873,6 +877,25 @@ namespace stan {
                      eval_elbo,
                      output_samples);
           cmd_advi.run(eta, adapt_engaged, adapt_iterations,
+                       tol_rel_obj, max_iterations,
+                       info, sample_writer, diagnostic_writer);
+        }
+
+        if (algo->value() == "trustvi") {
+          std::vector<std::string> names;
+          names.push_back("lp__");
+          model.constrained_param_names(names, true, true);
+
+          sample_writer(names);
+
+          stan::variational::trustvi<Model, rng_t>cmd_trustvi(model,
+                      cont_params,
+                      base_rng,
+                      grad_samples,
+                      elbo_samples,
+                      eval_elbo,
+                      output_samples);
+          cmd_trustvi.run(eta, false, adapt_iterations,
                        tol_rel_obj, max_iterations,
                        info, sample_writer, diagnostic_writer);
         }
